@@ -1,8 +1,10 @@
 package ImageHoster.controller;
 
+import ImageHoster.model.Comment;
 import ImageHoster.model.Image;
 import ImageHoster.model.Tag;
 import ImageHoster.model.User;
+import ImageHoster.service.CommentService;
 import ImageHoster.service.ImageService;
 import ImageHoster.service.TagService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,6 +29,9 @@ public class ImageController {
     @Autowired
     private TagService tagService;
 
+    @Autowired
+    private CommentService commentService;
+
     //This method displays all the images in the user home page after successful login
     @RequestMapping("images")
     public String getUserImages(Model model) {
@@ -50,8 +55,31 @@ public class ImageController {
         Image image = imageService.getImage(id);
         model.addAttribute("image", image);
         model.addAttribute("tags", image.getTags());
+        model.addAttribute("comments", image.getComments());
         return "images/image";
     }
+
+    /**
+     * Adds a comment to an existing image, with the passed commentText, as the requestParam in the POST request,
+     * and user as the session's logged in user
+     *
+     * @param id
+     * @param commentText
+     * @param comment
+     * @param session
+     * @return
+     */
+    @RequestMapping(value = "/image/{imageId}/{imageTitle}/comments", method = RequestMethod.POST)
+    public String addComment(@PathVariable("imageId") Integer id, @RequestParam("comment") String commentText, Comment comment, HttpSession session) {
+        User user = (User) session.getAttribute("loggeduser");
+        Image image = imageService.getImage(id);
+        comment.setImage(image);
+        comment.setText(commentText);
+        comment.setUser(user);
+        commentService.createComment(comment);
+        return "redirect:/images/" + image.getId() + "/" + image.getTitle();
+    }
+
 
     //This controller method is called when the request pattern is of type 'images/upload'
     //The method returns 'images/upload.html' file
@@ -97,6 +125,7 @@ public class ImageController {
         String tags = convertTagsToString(image.getTags());
         model.addAttribute("image", image);
         model.addAttribute("tags", tags);
+        model.addAttribute("comments", image.getComments());
 
         // Check if the current user is the owner of the image
         User currentUser = (User) session.getAttribute("loggeduser");
@@ -157,13 +186,13 @@ public class ImageController {
             String tags = convertTagsToString(image.getTags());
             model.addAttribute("image", image);
             model.addAttribute("tags", tags);
+            model.addAttribute("comments", image.getComments());
             model.addAttribute("deleteError", error);
             return "images/image";
         }
         imageService.deleteImage(imageId);
         return "redirect:/images";
     }
-
 
     //This method converts the image to Base64 format
     private String convertUploadedFileToBase64(MultipartFile file) throws IOException {
